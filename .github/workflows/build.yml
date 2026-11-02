@@ -90,7 +90,9 @@ jobs:
           cp build/libs/*.jar dist/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f dist/*.jar
+          # -A so a removed older jar is staged as a deletion too; `add dist/*.jar` only ever
+          # stages files that still exist, which silently leaves stale versions in the repo.
+          git add -A -f dist
           if git diff --cached --quiet; then
             echo "dist/ already up to date"
           else
