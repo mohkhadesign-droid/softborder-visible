@@ -1,0 +1,48 @@
+name: Build
+
+# Builds the mod on GitHub's runners, which have the network access that maven.minecraftforge.net
+# requires. Use this if you would rather not install JDK 8 and Gradle 7 locally.
+#
+# Before the first run you must make the Soft Borders jar available to the build:
+#   git add -f libs/softborder-1.5.2.jar
+# (.gitignore excludes libs/*.jar by default, so -f is required.)
+#
+# The finished jar appears under the run's "Artifacts" as sbvisible-jar.
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the Soft Borders jar is present
+        run: |
+          if ! ls libs/softborder-*.jar >/dev/null 2>&1; then
+            echo "::error::libs/softborder-1.5.2.jar is missing. The build compiles against Soft Borders' public API, so the jar must be committed: git add -f libs/softborder-1.5.2.jar"
+            exit 1
+          fi
+          ls -l libs/
+
+      # ForgeGradle 5.1 and the 1.16.5 toolchain require Java 8.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+
+      # ForgeGradle 5.1 does not support Gradle 8, and this repo ships no wrapper, so pin Gradle 7.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '7.4.2'
+
+      - name: Build
+        run: gradle build --no-daemon --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbvisible-jar
+          path: build/libs/*.jar
+          if-no-files-found: error

@@ -1,0 +1,38 @@
+modLoader="javafml"
+loaderVersion="[36,)"
+license="MIT"
+
+[[mods]]
+modId="sbvisible"
+version="${file.jarVersion}"
+displayName="Soft Borders Visible"
+credits="Add-on for Soft Borders by Jackiecrazy and DarkMega (MIT)."
+description='''
+Draws the edge of Soft Borders' safe areas: a translucent amber wall at your own border and cyan
+spheres around protecting beacons, plus a small status indicator.
+
+Client-side only. Install this on clients; the server keeps running Soft Borders unchanged.
+'''
+
+# Soft Borders itself. Required on the client, because this add-on reads its public API for the
+# border radius and the beacon-sanctuary setting. This add-on must load after it.
+[[dependencies.sbvisible]]
+    modId="softborder"
+    mandatory=true
+    versionRange="[1.5,2.0)"
+    ordering="AFTER"
+    side="CLIENT"
+
+[[dependencies.sbvisible]]
+    modId="forge"
+    mandatory=true
+    versionRange="[36,)"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.sbvisible]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.16.5,1.17)"
+    ordering="NONE"
+    side="CLIENT"

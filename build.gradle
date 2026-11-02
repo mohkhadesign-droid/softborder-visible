@@ -1,0 +1,71 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
+    }
+}
+
+apply plugin: 'net.minecraftforge.gradle'
+
+group = 'sbvisible'
+version = '1.0.0'
+
+java {
+    archivesBaseName = 'sbvisible'
+    // ForgeGradle 5.1 and the 1.16.5 toolchain need Java 8.
+    toolchain.languageVersion = JavaLanguageVersion.of(8)
+}
+
+minecraft {
+    // Same mappings Soft Borders itself is built with, so the deobfuscated dependency lines up.
+    mappings channel: 'snapshot', version: '20210309-1.16.5'
+
+    runs {
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                sbvisible {
+                    source sourceSets.main
+                }
+            }
+        }
+    }
+}
+
+repositories {
+    // Soft Borders is not published to a Maven repository, so it is consumed as a local file.
+    // Drop softborder-1.5.2.jar into ./libs/ before building - see README.md.
+    flatDir {
+        dir 'libs'
+    }
+}
+
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.16.5-36.2.34'
+
+    // fg.deobf remaps Soft Borders' published (SRG-named) jar into the dev mapping namespace so it
+    // can be compiled against. Only its public API is used: BorderData.getCap, IBorderTracker and
+    // BorderConfig. Nothing from it is bundled into this mod's jar - the player's own installed
+    // Soft Borders provides these classes at runtime.
+    implementation fg.deobf('blank:softborder:1.5.2')
+}
+
+jar {
+    manifest {
+        attributes([
+                "Specification-Title"     : "sbvisible",
+                "Specification-Vendor"    : "sbvisible",
+                "Specification-Version"   : "1",
+                "Implementation-Title"    : project.name,
+                "Implementation-Version"  : project.jar.archiveVersion,
+                "Implementation-Vendor"   : "sbvisible",
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+}
+
+jar.finalizedBy('reobfJar')

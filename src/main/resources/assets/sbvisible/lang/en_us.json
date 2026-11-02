@@ -1,0 +1,12 @@
+{
+  "key.categories.sbvisible": "Soft Borders Visible",
+  "key.sbvisible.toggle_borders": "Toggle boundary walls",
+  "sbvisible.toggle.on": "Soft Border walls shown",
+  "sbvisible.toggle.off": "Soft Border walls hidden",
+
+  "sbvisible.hud.inside": "Inside your border",
+  "sbvisible.hud.beacon": "Beacon sanctuary",
+  "sbvisible.hud.outside": "Outside all safe areas",
+  "sbvisible.hud.distance.in": "(%s to edge)",
+  "sbvisible.hud.distance.out": "(%s past edge)"
+}
