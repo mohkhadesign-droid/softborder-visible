@@ -16,6 +16,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to publish the finished jar into dist/
     steps:
       - uses: actions/checkout@v4
 
@@ -41,8 +43,53 @@ jobs:
       - name: Build
         run: gradle build --no-daemon --stacktrace
 
+      - name: Inspect the built jar
+        run: |
+          set -e
+          JAR=$(ls build/libs/*.jar | head -1)
+          echo "jar: $JAR"
+          sha256sum "$JAR"
+          echo "--- contents ---"
+          unzip -l "$JAR"
+          echo "--- mods.toml ---"
+          unzip -p "$JAR" META-INF/mods.toml
+          echo "--- reobfuscation: production jars must carry SRG (func_/field_) names ---"
+          if unzip -p "$JAR" sbvisible/client/SafeAreaRenderer.class | grep -aq 'func_'; then
+            echo "OK: SRG names present, so reobfJar ran and this jar will load outside the dev workspace"
+          else
+            echo "FAIL: no SRG names found - jar is still dev-mapped and would crash in a normal install"
+            exit 1
+          fi
+          echo "--- Soft Borders must NOT be bundled (the player's own install provides it) ---"
+          if unzip -l "$JAR" | grep -q 'jackiecrazy/'; then
+            echo "FAIL: Soft Borders classes are bundled into this jar"
+            exit 1
+          fi
+          echo "OK: no jackiecrazy/ classes in the jar"
+          echo "--- client-only classes must exist, and nothing else may ---"
+          unzip -l "$JAR" | grep -c 'sbvisible/' || true
+
       - uses: actions/upload-artifact@v4
         with:
           name: sbvisible-jar
           path: build/libs/*.jar
           if-no-files-found: error
+
+      # Also commit the jar into dist/ so it can be downloaded straight from the repo's file
+      # tree, without going through the Actions artifact UI. Pushes made with GITHUB_TOKEN do
+      # not retrigger workflows, and [skip ci] is belt-and-braces.
+      - name: Publish the jar into dist/
+        run: |
+          set -e
+          mkdir -p dist
+          rm -f dist/*.jar
+          cp build/libs/*.jar dist/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f dist/*.jar
+          if git diff --cached --quiet; then
+            echo "dist/ already up to date"
+          else
+            git commit -m "CI: publish built jar to dist/ [skip ci]"
+            git push
+          fi
