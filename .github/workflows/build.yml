@@ -54,7 +54,11 @@ jobs:
           echo "--- mods.toml ---"
           unzip -p "$JAR" META-INF/mods.toml
           echo "--- reobfuscation: production jars must carry SRG (func_/field_) names ---"
-          if unzip -p "$JAR" sbvisible/client/SafeAreaRenderer.class | grep -aq 'func_'; then
+          # Scan every client class rather than naming one: a hardcoded class name silently turns
+          # this check into a false failure the moment that class is renamed or removed.
+          WORK=$(mktemp -d)
+          unzip -oq "$JAR" -d "$WORK"
+          if grep -raqE 'func_[0-9]+_|field_[0-9]+_' "$WORK/sbvisible/client/"; then
             echo "OK: SRG names present, so reobfJar ran and this jar will load outside the dev workspace"
           else
             echo "FAIL: no SRG names found - jar is still dev-mapped and would crash in a normal install"
