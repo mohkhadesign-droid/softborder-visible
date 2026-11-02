@@ -47,6 +47,11 @@ public final class StormAtmosphere {
     private static final float MAX_FOG_DENSITY = 0.06F;
     private static final int MAX_PARTICLES_PER_TICK = 12;
     private static final int WIND_INTERVAL_TICKS = 60;
+    /** Subdivisions per axis for the screen tint. Fine enough that no cell boundary is visible. */
+    private static final int TINT_GRID = 24;
+    /** Radial distance where the tint starts, and where it reaches full. 1.0 is an edge midpoint. */
+    private static final double TINT_INNER = 0.55D;
+    private static final double TINT_OUTER = 1.30D;
 
     private static final Random RANDOM = new Random();
     private static int tickCounter;
@@ -126,9 +131,17 @@ public final class StormAtmosphere {
     // ---------------------------------------------------------------------------------------------
 
     /**
-     * A vignette built entirely from vertex colours: a 3x3 grid whose centre cell is fully
-     * transparent. No texture, so there is nothing to tint wrongly and nothing to load, and the
-     * clear centre keeps the middle of the screen fully readable for combat.
+     * A vignette built entirely from vertex colours, on a fine grid with a smooth radial falloff.
+     * <p>
+     * The first version of this used a 3x3 grid. It was mathematically continuous - neighbouring
+     * cells agreed exactly on their shared edges - but the <i>gradient direction</i> changed
+     * abruptly at each cell boundary, and the eye reads that derivative discontinuity as a hard
+     * line. The result was a visible rectangular outline at 30% and 70% of each axis. Hence
+     * {@value #TINT_GRID} subdivisions and an alpha that is a smooth function of radial distance:
+     * no straight boundaries exist to band along.
+     * <p>
+     * Still no texture, so there is nothing to load or tint wrongly, and the centre stays fully
+     * clear for combat.
      */
     @SubscribeEvent
     public static void screenTint(RenderGameOverlayEvent.Post event) {
@@ -153,9 +166,6 @@ public final class StormAtmosphere {
         float cg = c[1] * 0.6F + a2[1] * 0.4F;
         float cb = c[2] * 0.6F + a2[2] * 0.4F;
 
-        float[] xs = {0.0F, w * 0.30F, w * 0.70F, w};
-        float[] ys = {0.0F, h * 0.30F, h * 0.70F, h};
-
         Matrix4f m = event.getMatrixStack().getLast().getMatrix();
 
         RenderSystem.enableBlend();
@@ -166,18 +176,25 @@ public final class StormAtmosphere {
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder buf = tess.getBuffer();
         buf.begin(7, DefaultVertexFormats.POSITION_COLOR);
-        for (int gx = 0; gx < 3; gx++) {
-            for (int gy = 0; gy < 3; gy++) {
-                if (gx == 1 && gy == 1) continue; // clear centre
-                float a00 = alpha * nodeEdge(gx, gy);
-                float a10 = alpha * nodeEdge(gx + 1, gy);
-                float a11 = alpha * nodeEdge(gx + 1, gy + 1);
-                float a01 = alpha * nodeEdge(gx, gy + 1);
+
+        final int n = TINT_GRID;
+        for (int gx = 0; gx < n; gx++) {
+            float x0 = w * gx / (float) n;
+            float x1 = w * (gx + 1) / (float) n;
+            for (int gy = 0; gy < n; gy++) {
+                float y0 = h * gy / (float) n;
+                float y1 = h * (gy + 1) / (float) n;
+
+                float a00 = alpha * tintAt(gx, gy, n);
+                float a10 = alpha * tintAt(gx + 1, gy, n);
+                float a11 = alpha * tintAt(gx + 1, gy + 1, n);
+                float a01 = alpha * tintAt(gx, gy + 1, n);
                 if (a00 <= 0.0F && a10 <= 0.0F && a11 <= 0.0F && a01 <= 0.0F) continue;
-                buf.pos(m, xs[gx], ys[gy], 0.0F).color(cr, cg, cb, a00).endVertex();
-                buf.pos(m, xs[gx], ys[gy + 1], 0.0F).color(cr, cg, cb, a01).endVertex();
-                buf.pos(m, xs[gx + 1], ys[gy + 1], 0.0F).color(cr, cg, cb, a11).endVertex();
-                buf.pos(m, xs[gx + 1], ys[gy], 0.0F).color(cr, cg, cb, a10).endVertex();
+
+                buf.pos(m, x0, y0, 0.0F).color(cr, cg, cb, a00).endVertex();
+                buf.pos(m, x0, y1, 0.0F).color(cr, cg, cb, a01).endVertex();
+                buf.pos(m, x1, y1, 0.0F).color(cr, cg, cb, a11).endVertex();
+                buf.pos(m, x1, y0, 0.0F).color(cr, cg, cb, a10).endVertex();
             }
         }
         tess.draw();
@@ -188,11 +205,19 @@ public final class StormAtmosphere {
         RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
-    /** 1 on the outer frame of the 4x4 node grid, 0 on the two inner lines. */
-    private static float nodeEdge(int gx, int gy) {
-        float ex = (gx == 0 || gx == 3) ? 1.0F : 0.0F;
-        float ey = (gy == 0 || gy == 3) ? 1.0F : 0.0F;
-        return Math.max(ex, ey);
+    /**
+     * Vignette weight at grid node (gx, gy): a smoothstep on distance from the screen centre, so
+     * the falloff is radial and has no straight contour anywhere on screen.
+     */
+    private static float tintAt(int gx, int gy, int n) {
+        // Normalised to -1..1 on each axis, so an edge midpoint is 1 and a corner is about 1.414.
+        double nx = (2.0D * gx / n) - 1.0D;
+        double ny = (2.0D * gy / n) - 1.0D;
+        double r = Math.sqrt(nx * nx + ny * ny);
+        double t = (r - TINT_INNER) / (TINT_OUTER - TINT_INNER);
+        if (t <= 0.0D) return 0.0F;
+        if (t >= 1.0D) return 1.0F;
+        return (float) (t * t * (3.0D - 2.0D * t));
     }
 
     // ---------------------------------------------------------------------------------------------

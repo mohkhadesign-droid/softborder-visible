@@ -94,8 +94,8 @@ public class VisualConfig {
         b.push("lightning");
         _lightning = b.comment("cosmetic lightning inside the storm. Purely visual: it never spawns a lightning entity, never starts fires, and never damages anything.")
                 .define("lightning enabled", true);
-        _lightInterval = b.comment("average seconds between flashes. The floor of 1.5 is deliberate, to keep the effect from strobing.")
-                .defineInRange("lightning interval seconds", 6.0D, 1.5D, 120.0D);
+        _lightInterval = b.comment("average seconds between flashes, jittered either side so they never fall into a rhythm. Up to two bolts can be alight at once. The floor of 1.5 is deliberate, to keep the effect from strobing.")
+                .defineInRange("lightning interval seconds", 3.0D, 1.5D, 120.0D);
         _lightIntensity = b.comment("brightness and size of a flash. 0 is invisible.")
                 .defineInRange("lightning intensity", 1.0D, 0.0D, 2.0D);
         b.pop();
