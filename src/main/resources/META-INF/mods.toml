@@ -8,8 +8,9 @@ version="${file.jarVersion}"
 displayName="Soft Borders Visible"
 credits="Add-on for Soft Borders by Jackiecrazy and DarkMega (MIT)."
 description='''
-Draws the edge of Soft Borders' safe areas: a translucent amber wall at your own border and cyan
-spheres around protecting beacons, plus a small status indicator.
+Turns Soft Borders' dangerous area into a visible violet storm, with beacon-created shelters as
+clear pockets inside it. Layered drifting clouds, flowing energy, cosmetic lightning, storm fog,
+particles and wind, plus a small shelter indicator.
 
 Client-side only. Install this on clients; the server keeps running Soft Borders unchanged.
 '''
